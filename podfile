@@ -7,6 +7,6 @@ target 'BLEDemo' do
 
   # Pods for BLEDemo
 
-pod 'Moya'
+  pod 'Moya', '~> 10.0'
 
 end

@@ -14,26 +14,23 @@ public enum EndpointSampleResponse {
 }
 
 /// Class for reifying a target of the `Target` enum unto a concrete `Endpoint`.
-/// - Note: As of Moya 11.0.0 Endpoint is no longer generic.
-///   Existing code should work as is after removing the generic.
-///   See #1529 and #1524 for the discussion.
-open class Endpoint {
+open class Endpoint<Target> {
     public typealias SampleResponseClosure = () -> EndpointSampleResponse
 
     /// A string representation of the URL for the request.
-    public let url: String
+    open let url: String
 
     /// A closure responsible for returning an `EndpointSampleResponse`.
-    public let sampleResponseClosure: SampleResponseClosure
+    open let sampleResponseClosure: SampleResponseClosure
 
     /// The HTTP method for the request.
-    public let method: Moya.Method
+    open let method: Moya.Method
 
     /// The `Task` for the request.
-    public let task: Task
+    open let task: Task
 
     /// The HTTP header fields for the request.
-    public let httpHeaderFields: [String: String]?
+    open let httpHeaderFields: [String: String]?
 
     public init(url: String,
                 sampleResponseClosure: @escaping SampleResponseClosure,
@@ -49,12 +46,12 @@ open class Endpoint {
     }
 
     /// Convenience method for creating a new `Endpoint` with the same properties as the receiver, but with added HTTP header fields.
-    open func adding(newHTTPHeaderFields: [String: String]) -> Endpoint {
+    open func adding(newHTTPHeaderFields: [String: String]) -> Endpoint<Target> {
         return Endpoint(url: url, sampleResponseClosure: sampleResponseClosure, method: method, task: task, httpHeaderFields: add(httpHeaderFields: newHTTPHeaderFields))
     }
 
     /// Convenience method for creating a new `Endpoint` with the same properties as the receiver, but with replaced `task` parameter.
-    open func replacing(task: Task) -> Endpoint {
+    open func replacing(task: Task) -> Endpoint<Target> {
         return Endpoint(url: url, sampleResponseClosure: sampleResponseClosure, method: method, task: task, httpHeaderFields: httpHeaderFields)
     }
 
@@ -73,7 +70,6 @@ open class Endpoint {
 
 /// Extension for converting an `Endpoint` into a `URLRequest`.
 extension Endpoint {
-    // swiftlint:disable cyclomatic_complexity
     /// Returns the `Endpoint` converted to a `URLRequest` if valid. Throws an error otherwise.
     public func urlRequest() throws -> URLRequest {
         guard let requestURL = Foundation.URL(string: url) else {
@@ -92,8 +88,6 @@ extension Endpoint {
             return request
         case let .requestJSONEncodable(encodable):
             return try request.encoded(encodable: encodable)
-        case let .requestCustomJSONEncodable(encodable, encoder: encoder):
-            return try request.encoded(encodable: encodable, encoder: encoder)
         case let .requestParameters(parameters, parameterEncoding):
             return try request.encoded(parameters: parameters, parameterEncoding: parameterEncoding)
         case let .uploadCompositeMultipart(_, urlParameters):
@@ -114,22 +108,18 @@ extension Endpoint {
             return try bodyfulRequest.encoded(parameters: urlParameters, parameterEncoding: urlEncoding)
         }
     }
-    // swiftlint:enable cyclomatic_complexity
 }
 
 /// Required for using `Endpoint` as a key type in a `Dictionary`.
 extension Endpoint: Equatable, Hashable {
-    public func hash(into hasher: inout Hasher) {
-        guard let request = try? urlRequest() else {
-            hasher.combine(url)
-            return
-        }
-        hasher.combine(request)
+    public var hashValue: Int {
+        let request = try? urlRequest()
+        return request?.hashValue ?? url.hashValue
     }
 
     /// Note: If both Endpoints fail to produce a URLRequest the comparison will
     /// fall back to comparing each Endpoint's hashValue.
-    public static func == (lhs: Endpoint, rhs: Endpoint) -> Bool {
+    public static func == <T>(lhs: Endpoint<T>, rhs: Endpoint<T>) -> Bool {
         let lhsRequest = try? lhs.urlRequest()
         let rhsRequest = try? rhs.urlRequest()
         if lhsRequest != nil, rhsRequest == nil { return false }
